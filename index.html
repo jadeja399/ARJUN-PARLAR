@@ -1,1 +1,63 @@
+<!doctype html>
+<html lang="gu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ગુજરાતી હિસાબ</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#f4f6f8;color:#222}header{background:#1976d2;color:#fff;padding:18px;text-align:center;font-size:24px;font-weight:bold}
+main{max-width:900px;margin:auto;padding:14px}.card{background:#fff;border-radius:12px;padding:15px;margin-bottom:14px;box-shadow:0 2px 8px #0001}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}input,button,select{padding:12px;border:1px solid #ccc;border-radius:8px;font-size:16px;box-sizing:border-box}
+input{width:100%;margin:5px 0}button{background:#1976d2;color:#fff;border:0;margin:5px 2px}.danger{background:#d32f2f}
+.tabs button{background:#666}.tabs button.active{background:#1976d2}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
+.total{font-size:19px;font-weight:bold;line-height:1.8}.ok{color:green;font-weight:bold}@media(max-width:600px){.grid{grid-template-columns:1fr}table{font-size:12px}}
+</style></head>
+<body><header>🧾 ગુજરાતી હિસાબ</header><main>
+<div class="card tabs"><button id="saleBtn" onclick="setType('sale')">🧾 વેચાણ</button><button id="purchaseBtn" class="active" onclick="setType('purchase')">🛒 Purchase</button></div>
+<div class="card">
+<h3 id="formTitle">🛒 નવી Purchase એન્ટ્રી</h3>
+<div class="grid">
+<div>પાર્ટી / સપ્લાયર<input id="party" placeholder="સપ્લાયરનું નામ"></div>
+<div>તારીખ<input id="date" type="date"></div>
+<div>માલ / વસ્તુ<input id="item" placeholder="દૂધ, દહીં વગેરે"></div>
+<div>જથ્થો<input id="qty" type="number" step="any" placeholder="10"></div>
+<div>કુલ રકમ<input id="amount" type="number" step="any" placeholder="500"></div>
+<div>ચૂકવેલ રકમ<input id="paid" type="number" step="any" placeholder="0"></div>
+</div>
+<button onclick="addEntry()">➕ Purchase એન્ટ્રી ઉમેરો</button>
+<button onclick="clearForm()">સાફ કરો</button>
+<div id="msg"></div>
+</div>
 
+<div class="card"><h3>🔎 હિસાબ</h3><input id="search" placeholder="પાર્ટી અથવા વસ્તુ શોધો" oninput="render()">
+<div id="summary" class="total"></div><div style="overflow:auto"><table><thead><tr><th>પ્રકાર</th><th>તારીખ</th><th>પાર્ટી</th><th>વસ્તુ</th><th>જથ્થો</th><th>કુલ</th><th>બાકી</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></div>
+
+<div class="card"><h3>📊 કુલ સારાંશ</h3><div id="allSummary" class="total"></div></div>
+<div class="card"><button onclick="backup()">💾 બેકઅપ</button><button onclick="document.getElementById('file').click()">બેકઅપ પાછો લાવો</button><input id="file" type="file" accept=".json" hidden onchange="restore(event)"><button class="danger" onclick="wipe()">બધો હિસાબ કાઢો</button></div>
+</main>
+<script>
+let entries=JSON.parse(localStorage.getItem('gujarati_hisab_fixed')||'[]'), type='purchase';
+const $=id=>document.getElementById(id);
+$('date').value=new Date().toISOString().slice(0,10);
+function setType(t){type=t;$('purchaseBtn').classList.toggle('active',t==='purchase');$('saleBtn').classList.toggle('active',t==='sale');$('formTitle').textContent=t==='purchase'?'🛒 નવી Purchase એન્ટ્રી':'🧾 નવી વેચાણ એન્ટ્રી';$('party').placeholder=t==='purchase'?'સપ્લાયરનું નામ':'ગ્રાહકનું નામ';$('msg').textContent=''}
+function save(){localStorage.setItem('gujarati_hisab_fixed',JSON.stringify(entries))}
+function addEntry(){
+ const party=$('party').value.trim(),date=$('date').value,item=$('item').value.trim(),qty=Number($('qty').value),amount=Number($('amount').value),paid=Number($('paid').value||0);
+ if(!party||!date||!item||qty<=0||amount<=0){$('msg').innerHTML='<span style="color:#d32f2f">બધી જરૂરી માહિતી ભરો.</span>';return}
+ if(paid<0||paid>amount){$('msg').innerHTML='<span style="color:#d32f2f">ચૂકવેલ રકમ કુલ રકમ કરતાં વધારે ન હોવી જોઈએ.</span>';return}
+ entries.push({id:Date.now()+Math.random(),type,party,date,item,qty,amount,paid,balance:amount-paid});
+ save();render();clearForm(false);$('msg').innerHTML='<span class="ok">✅ Purchase એન્ટ્રી સેવ થઈ ગઈ.</span>';
+}
+function clearForm(reset=true){$('party').value='';$('item').value='';$('qty').value='';$('amount').value='';$('paid').value='';if(reset)$('date').value=new Date().toISOString().slice(0,10)}
+function del(id){entries=entries.filter(e=>e.id!==id);save();render()}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function render(){
+ const q=$('search').value.toLowerCase(), rows=entries.filter(e=>(e.party+' '+e.item).toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date));
+ $('rows').innerHTML=rows.map(e=>`<tr><td>${e.type==='purchase'?'🛒 Purchase':'🧾 વેચાણ'}</td><td>${e.date}</td><td>${esc(e.party)}</td><td>${esc(e.item)}</td><td>${e.qty}</td><td>₹${e.amount}</td><td>₹${e.balance}</td><td><button class="danger" onclick="del(${e.id})">કાઢો</button></td></tr>`).join('');
+ const p=entries.filter(e=>e.type==='purchase'),s=entries.filter(e=>e.type==='sale');
+ const pt=p.reduce((a,e)=>a+e.amount,0),pb=p.reduce((a,e)=>a+e.balance,0),st=s.reduce((a,e)=>a+e.amount,0),sb=s.reduce((a,e)=>a+e.balance,0);
+ $('summary').textContent=`દેખાતી એન્ટ્રીઓ: ${rows.length} | કુલ: ₹${rows.reduce((a,e)=>a+e.amount,0)}`;
+ $('allSummary').innerHTML=`🛒 Purchase: ₹${pt} | બાકી: ₹${pb}<br>🧾 વેચાણ: ₹${st} | ગ્રાહકો પાસેથી બાકી: ₹${sb}`;
+}
+function backup(){const b=new Blob([JSON.stringify(entries,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='gujarati-hisab-backup.json';a.click()}
+function restore(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{entries=JSON.parse(r.result);save();render();alert('બેકઅપ સફળતાપૂર્વક પાછો આવ્યો.')}catch(e){alert('બેકઅપ ફાઇલ યોગ્ય નથી.')}};r.readAsText(f)}
+function wipe(){if(confirm('ખરેખર બધો હિસાબ કાઢી નાખવો છે?')){entries=[];save();render()}}
+setType('purchase');render();
+</script></body></html>
